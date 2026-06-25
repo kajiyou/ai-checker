@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>生成AI 投入前 個人情報チェッカー</title>
+<style>
+  :root{
+    --bg:#f4f6f9; --card:#ffffff; --ink:#1f2733; --sub:#5b6675;
+    --line:#e3e8ef; --accent:#2563eb;
+    --green:#16a34a; --green-bg:#e8f7ed;
+    --yellow:#d97706; --yellow-bg:#fdf4e3;
+    --red:#dc2626; --red-bg:#fdecec;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Segoe UI",Meiryo,sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.65;padding:24px 14px 80px;}
+  .wrap{max-width:780px;margin:0 auto;}
+  header h1{font-size:20px;margin:0 0 4px;}
+  header p.lead{margin:0 0 6px;color:var(--sub);font-size:13.5px;}
+  .privacy{display:inline-block;font-size:12px;background:#eef2ff;color:#3949ab;border:1px solid #d6ddff;
+    padding:3px 10px;border-radius:999px;margin-bottom:18px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 20px;margin-bottom:18px;
+    box-shadow:0 1px 2px rgba(20,30,50,.04);}
+  .card h2{font-size:15px;margin:0 0 12px;display:flex;align-items:center;gap:8px;}
+  .step-num{display:inline-flex;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;
+    font-size:12px;align-items:center;justify-content:center;flex:none;}
+  textarea{width:100%;min-height:120px;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:14px;
+    resize:vertical;font-family:inherit;color:var(--ink);}
+  textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(37,99,235,.12);}
+  .hint{font-size:12px;color:var(--sub);margin:6px 2px 0;}
+  .checks{display:grid;grid-template-columns:1fr 1fr;gap:1px 14px;}
+  @media(max-width:520px){.checks{grid-template-columns:1fr;}}
+  .chk{display:flex;gap:10px;align-items:flex-start;padding:7px 8px;border-radius:8px;}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none;margin-top:6px;}
+  .dot.direct{background:var(--red);}
+  .dot.sensitive{background:var(--yellow);}
+  .dot.quasi{background:#64748b;}
+  .chk .lbl{font-size:13.5px;}
+  .chk .lbl small{display:block;color:var(--sub);font-size:11.5px;margin-top:1px;}
+  .group-title{grid-column:1/-1;font-size:12px;font-weight:700;color:var(--sub);margin:12px 4px 4px;letter-spacing:.02em;}
+  .group-title:first-child{margin-top:0;}
+  .btn{background:var(--accent);color:#fff;border:none;border-radius:10px;padding:12px 18px;font-size:15px;
+    font-weight:700;cursor:pointer;width:100%;margin-top:6px;}
+  .btn:hover{background:#1d4ed8;}
+  .btn.sub{background:#eef2f7;color:#374151;font-weight:600;font-size:13px;padding:9px;margin-top:10px;}
+  .btn.sub:hover{background:#e2e8f0;}
+
+  /* 結果 */
+  #result{display:none;}
+  .signal{border-radius:14px;padding:18px;margin-bottom:16px;border:2px solid;}
+  .signal.green{background:var(--green-bg);border-color:var(--green);}
+  .signal.yellow{background:var(--yellow-bg);border-color:var(--yellow);}
+  .signal.red{background:var(--red-bg);border-color:var(--red);}
+  .signal .head{display:flex;align-items:center;gap:14px;}
+  .lamp{width:52px;height:52px;border-radius:50%;flex:none;position:relative;}
+  .signal.green .lamp{background:var(--green);box-shadow:0 0 0 6px rgba(22,163,74,.18);}
+  .signal.yellow .lamp{background:var(--yellow);box-shadow:0 0 0 6px rgba(217,119,6,.18);}
+  .signal.red .lamp{background:var(--red);box-shadow:0 0 0 6px rgba(220,38,38,.18);}
+  .signal .title{font-size:19px;font-weight:800;margin:0;}
+  .signal.green .title{color:var(--green);}
+  .signal.yellow .title{color:var(--yellow);}
+  .signal.red .title{color:var(--red);}
+  .signal .verdict{font-size:13.5px;color:var(--ink);margin:10px 2px 0;}
+  .findings{list-style:none;padding:0;margin:12px 0 0;}
+  .findings li{font-size:13px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.65);
+    margin-bottom:6px;display:flex;gap:8px;align-items:flex-start;}
+  .findings li .tag{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:999px;flex:none;margin-top:1px;color:#fff;}
+  .tag.hi{background:var(--red);} .tag.mid{background:var(--yellow);} .tag.lo{background:#64748b;}
+  .advice{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;}
+  .advice h3{font-size:13.5px;margin:0 0 8px;}
+  .advice ul{margin:0;padding-left:20px;font-size:13px;}
+  .advice li{margin-bottom:5px;}
+  .disclaimer{font-size:11.5px;color:var(--sub);margin-top:18px;border-top:1px dashed var(--line);padding-top:12px;}
+  .disclaimer a{color:var(--accent);}
+  mark{background:#fde68a;padding:0 2px;border-radius:3px;}
+
+  /* 利用規約・免責ボックス */
+  .terms{background:#fbfcfe;border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:18px;}
+  .terms h2{font-size:14px;margin:0 0 10px;}
+  .terms ol{margin:0;padding-left:20px;font-size:12.5px;color:#384150;}
+  .terms li{margin-bottom:7px;}
+  .terms a{color:var(--accent);}
+
+  /* 初回同意モーダル */
+  .overlay{position:fixed;inset:0;background:rgba(15,23,42,.55);display:flex;align-items:center;
+    justify-content:center;padding:18px;z-index:50;}
+  .overlay[hidden]{display:none;}
+  .modal{background:#fff;border-radius:16px;max-width:520px;width:100%;max-height:88vh;overflow:auto;
+    padding:24px 22px;box-shadow:0 18px 50px rgba(15,23,42,.3);}
+  .modal h2{font-size:18px;margin:0 0 4px;}
+  .modal .ms{color:var(--sub);font-size:13px;margin:0 0 14px;}
+  .modal ul{margin:0 0 16px;padding-left:20px;font-size:13px;color:#334155;}
+  .modal li{margin-bottom:8px;}
+  .modal .agree-row{display:flex;align-items:flex-start;gap:9px;font-size:13px;margin-bottom:14px;
+    background:#f1f5f9;padding:11px 12px;border-radius:10px;}
+  .modal .agree-row input{margin-top:2px;width:17px;height:17px;flex:none;accent-color:var(--accent);}
+  .modal .btn[disabled]{opacity:.45;cursor:not-allowed;}
+</style>
+</head>
+<body>
+
+<!-- 初回同意モーダル -->
+<div class="overlay" id="consent">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="cTitle">
+    <h2 id="cTitle">ご利用前の確認</h2>
+    <p class="ms">本ツールを使う前に、以下にご同意ください。</p>
+    <ul>
+      <li>本ツールは、個人情報・要配慮個人情報が含まれていないかを<strong>機械的に簡易チェックする補助ツール</strong>であり、法的助言や安全性を保証するものではありません。</li>
+      <li>判定は単純なルールに基づくため、<strong>検出漏れ（危険なのに青信号）や過検出が起こり得ます</strong>。結果を過信せず、最終判断はご自身と所属組織の責任で行ってください。</li>
+      <li>入力した文章は<strong>お使いの端末内だけで処理され、どこにも送信・保存されません</strong>（外部通信は行いません）。</li>
+      <li>本ツールの利用により生じたいかなる損害についても、提供者は責任を負いません。</li>
+    </ul>
+    <label class="agree-row">
+      <input type="checkbox" id="agreeChk">
+      <span>上記の内容を理解し、自己責任で利用することに同意します。</span>
+    </label>
+    <button class="btn" id="agreeBtn" disabled>同意して利用を開始する</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <header>
+    <h1>生成AI 投入前 個人情報チェッカー</h1>
+    <p class="lead">入力しようとしている文章を、生成AIに送る<strong>前に</strong>信号判定します。青＝そのまま可／黄＝ぼかす推奨／赤＝投入は避ける。</p>
+    <span class="privacy">🔒 すべてブラウザ内で完結・通信なし・AI不使用</span>
+  </header>
+
+  <!-- STEP 1 -->
+  <div class="card">
+    <h2><span class="step-num">1</span>入力しようとしている文章を貼り付け</h2>
+    <textarea id="input" placeholder="例：40代男性、〇〇県在住。筋萎縮性側索硬化症の患者さんで…"></textarea>
+    <p class="hint">※ ここに入れた文章はどこにも送信されません。端末内で照合するだけです。</p>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="card">
+    <h2><span class="step-num">2</span>自動で検出されるカテゴリ（参考）</h2>
+    <p class="hint" style="margin:-4px 2px 12px">下記のカテゴリを自動で照合します。判定前に、これらが文章に含まれていないか一度ご確認ください。</p>
+    <div class="checks" id="checks"></div>
+  </div>
+
+  <button class="btn" id="judge">生成AIに投入できるか判定する</button>
+  <button class="btn sub" id="reset">入力をクリア</button>
+
+  <!-- RESULT -->
+  <div id="result">
+    <div class="signal" id="signal">
+      <div class="head">
+        <div class="lamp"></div>
+        <div>
+          <p class="title" id="sigTitle"></p>
+          <div style="font-size:12.5px;color:#475569" id="sigSub"></div>
+        </div>
+      </div>
+      <p class="verdict" id="sigVerdict"></p>
+      <ul class="findings" id="findings"></ul>
+    </div>
+    <div class="advice">
+      <h3>💡 推奨アクション</h3>
+      <ul id="advice"></ul>
+    </div>
+  </div>
+
+  <!-- 利用規約・免責 -->
+  <div class="terms">
+    <h2>ご利用にあたって（免責事項）</h2>
+    <ol>
+      <li><strong>位置づけ：</strong>本ツールは、生成AIへ入力する前に個人情報・要配慮個人情報の有無を機械的にチェックする簡易スクリーニング補助であり、法的助言・コンプライアンス上の保証を行うものではありません。</li>
+      <li><strong>正確性の限界：</strong>判定は固定のルール・キーワードに基づくため、検出漏れ（危険な情報を含むのに「青信号」と表示される）や過検出が必ず起こり得ます。結果は参考情報としてのみご利用ください。</li>
+      <li><strong>最終判断：</strong>生成AIへ情報を入力するか否かの最終判断は、利用者ご自身および所属組織の規程・ガイドラインに基づき、利用者の責任で行ってください。</li>
+      <li><strong>データの取扱い：</strong>入力された文章はお使いのブラウザ内のみで処理され、外部への送信・サーバーへの保存は一切行いません。提供者が利用者の入力内容を取得することはありません。</li>
+      <li><strong>免責：</strong>本ツールの利用または利用不能により生じたいかなる損害についても、提供者は一切の責任を負いません。</li>
+      <li><strong>参考にした公開情報（出典）：</strong>
+        <ul style="margin:5px 0 0;padding-left:18px">
+          <li>個人情報保護委員会「<a href="https://www.ppc.go.jp/all_faq_index/faq4-q011/" target="_blank" rel="noopener">『要配慮個人情報』とはどのようなものを指しますか。また『要配慮個人情報』にかかる留意点は何でしょうか。</a>」（FAQ）</li>
+          <li>厚生労働省「<a href="https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/0000027272.html" target="_blank" rel="noopener">厚生労働分野における個人情報の適切な取扱いのためのガイドライン等</a>」</li>
+        </ul>
+        ※本ツールは上記を参考にした独自の簡易判定であり、各機関の公式見解・推奨を示すものではありません。
+      </li>
+    </ol>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   判定ロジック（完全クライアントサイド・AI/通信なし）
+   識別子レベル: 直接識別子(direct) / 要配慮(sensitive) / 準識別子(quasi)
+   ========================================================= */
+
+// ---- チェックリスト定義 ----
+const CHECK_GROUPS = [
+  { title:"直接的に個人を特定できる情報", items:[
+    {id:"name",  level:"direct", w:3, label:"氏名（フルネーム）", desc:"姓名・実名・通称が含まれる"},
+    {id:"contact",level:"direct",w:3, label:"連絡先", desc:"電話番号・メール・住所の番地・SNSアカウント"},
+    {id:"id",    level:"direct", w:3, label:"ID・番号類", desc:"患者ID・カルテ番号・マイナンバー・保険証番号など"},
+    {id:"face",  level:"direct", w:3, label:"顔写真・固有の画像/音声", desc:"本人が特定できる画像・録音"},
+  ]},
+  { title:"要配慮個人情報", items:[
+    {id:"rare",  level:"sensitive", w:2, label:"希少疾患・指定難病", desc:"該当者が少なく特定されやすい病名（例：ALS等）"},
+    {id:"common",level:"sensitive", w:1, label:"一般的な病名・症状・治療歴", desc:"病歴・服薬・診断・検査結果など"},
+    {id:"social",level:"sensitive", w:2, label:"社会的差別につながりうる情報", desc:"障害・犯罪歴・人種・信条・出自など"},
+  ]},
+  { title:"準識別子（単独では弱いが、組み合わせで特定リスク）", items:[
+    {id:"age",   level:"quasi", w:1, label:"年齢・年代", desc:"「40代」「○歳」など"},
+    {id:"sex",   level:"quasi", w:1, label:"性別"},
+    {id:"geo",   level:"quasi", w:1, label:"地域", desc:"都道府県・市区町村・施設名など"},
+    {id:"affil", level:"quasi", w:1, label:"所属・職業・勤務先・学校"},
+    {id:"date",  level:"quasi", w:1, label:"具体的な日付", desc:"受診日・発症日・入院日など"},
+    {id:"family",level:"quasi", w:1, label:"家族構成・続柄"},
+  ]},
+];
+
+// ---- テキスト自動検出パターン ----
+const RARE_DISEASES = ["筋萎縮性側索硬化症","ALS","パーキンソン病","多系統萎縮症","脊髄小脳変性症",
+  "重症筋無力症","ギラン・バレー","ハンチントン","クローン病","潰瘍性大腸炎","全身性エリテマトーデス",
+  "ベーチェット","サルコイドーシス","網膜色素変性症","表皮水疱症","ムコ多糖症","ファブリー病","ポンペ病",
+  "副腎白質ジストロフィー","脊髄性筋萎縮症","SMA","デュシェンヌ","筋ジストロフィー","もやもや病",
+  "特発性肺線維症","原発性胆汁性胆管炎","ウィルソン病","指定難病","希少疾患","難病"];
+const COMMON_DISEASES = ["がん","癌","糖尿病","高血圧","うつ病","統合失調症","認知症","脳梗塞","心筋梗塞",
+  "喘息","肺炎","骨折","リウマチ","てんかん","HIV","肝炎","脂質異常","腎不全","透析","発達障害","自閉",
+  "ADHD","双極性","パニック障害","摂食障害","アルコール依存","薬物依存","妊娠","流産"];
+const SOCIAL = ["前科","逮捕","逮歴","犯罪歴","受刑","障害者手帳","身体障害","知的障害","精神障害",
+  "被差別","出自","国籍","宗教","信仰","部落"];
+
+const PATTERNS = [
+  {id:"contact", level:"direct", w:3, label:"連絡先（電話/メール）の形式",
+    re:/(0\d{1,4}-?\d{1,4}-?\d{3,4})|([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})/},
+  {id:"mynum", level:"direct", w:3, label:"番号らしき12桁の数字（マイナンバー等の可能性）",
+    re:/\b\d{12}\b/},
+  {id:"id", level:"direct", w:3, label:"ID・番号類（患者ID・カルテ番号・会員番号など）",
+    re:/(?:患者|カルテ|診察券|被保険者|保険証|会員|社員|学籍|整理|管理|受付|登録)\s*(?:番号|ＮＯ|No|ID|コード)?\s*[:：#＃.\-]?\s*[A-Za-z0-9０-９\-]{2,}|(?:ID|ＩＤ|No|ＮＯ)\s*[:：#＃.\-]?\s*[A-Za-z0-9０-９\-]{2,}/i},
+  {id:"code", level:"direct", w:3, label:"識別コードらしき英数字（英字＋数字や6桁以上の番号）",
+    re:/\b[A-Za-z]{1,5}-?\d{4,}\b|\b\d{6,}\b/},
+  {id:"addr", level:"direct", w:3, label:"住所（丁目・番地の形式）",
+    re:/(\d+丁目|\d+番地|\d+番\d+号|〒\s*\d{3}-?\d{4})/},
+  {id:"name", level:"direct", w:3, label:"氏名らしき表記（敬称付き・氏名ラベル）",
+    re:/[一-龥ぁ-んァ-ヶ]{1,5}\s*(様|氏|君|くん|ちゃん|さん|先生|殿|院長|部長|課長)|(?:氏名|名前|患者名|お名前|担当者|ご本人)\s*[:：]?\s*\S{1,}/},
+  {id:"date", level:"quasi", w:1, label:"具体的な日付",
+    re:/(\d{4}年)?\d{1,2}月\d{1,2}日|\d{4}\/\d{1,2}\/\d{1,2}/},
+  {id:"age", level:"quasi", w:1, label:"年齢・年代",
+    re:/\d{1,3}\s*歳|\d{2}\s*代/},
+  {id:"sex", level:"quasi", w:1, label:"性別",
+    re:/男性|女性|男児|女児|♂|♀/},
+  {id:"geo", level:"quasi", w:1, label:"地域（都道府県・市区町村）",
+    re:/(東京都|北海道|(?:京都|大阪)府|[一-龥]{2,3}県)|[一-龥]{1,5}(市|区|町|村)/},
+];
+
+function scanText(t){
+  const found = [];
+  if(!t.trim()) return found;
+  PATTERNS.forEach(p=>{ const m=t.match(p.re); if(m) found.push({...p, ex:m[0]}); });
+  const hitList=(arr,level,w,label)=>{
+    const hits=arr.filter(k=>t.includes(k));
+    if(hits.length) found.push({id:label,level,w,label:label+"："+hits.slice(0,3).join("・"),ex:hits[0]});
+  };
+  hitList(RARE_DISEASES,"sensitive",2,"希少疾患・指定難病");
+  hitList(COMMON_DISEASES,"sensitive",1,"病名・症状・治療歴");
+  hitList(SOCIAL,"sensitive",2,"社会的差別につながりうる情報");
+  return found;
+}
+
+// ---- チェックリスト描画 ----
+const checksEl = document.getElementById("checks");
+CHECK_GROUPS.forEach(g=>{
+  const t=document.createElement("div"); t.className="group-title"; t.textContent=g.title; checksEl.appendChild(t);
+  g.items.forEach(it=>{
+    const l=document.createElement("div"); l.className="chk";
+    l.innerHTML=`<span class="dot ${it.level}"></span>
+      <span class="lbl">${it.label}${it.desc?`<small>${it.desc}</small>`:""}</span>`;
+    checksEl.appendChild(l);
+  });
+});
+
+// ---- 判定本体 ----
+function judge(){
+  const text = document.getElementById("input").value;
+  const auto = scanText(text);
+
+  // 統合（重複idはまとめる）
+  const map={};
+  const add=(f)=>{ if(!map[f.id]||map[f.id].w<f.w) map[f.id]={...f}; };
+  auto.forEach(add);
+  const all=Object.values(map);
+
+  // レベル別カウント
+  const direct = all.filter(f=>f.level==="direct");
+  const rare   = all.filter(f=>f.label.includes("希少")||f.id==="rare");
+  const sens   = all.filter(f=>f.level==="sensitive");
+  const quasi  = all.filter(f=>f.level==="quasi");
+
+  // --- 信号ルール（医療・要配慮に厳しめ）---
+  let sig, title, verdict;
+  if(direct.length>0){
+    sig="red"; title="赤信号：投入しないでください";
+    verdict="氏名・連絡先・ID・住所などの直接識別子が含まれています。それ自体で個人が特定されるため、生成AIへの入力は避けてください。";
+  } else if(rare.length>0 && quasi.length>=2){
+    sig="red"; title="赤信号：投入しないでください";
+    verdict="希少疾患・指定難病と複数の準識別子（年代・性別・地域など）が組み合わさっています。容易照合性が高く、特定の個人を推定できてしまう恐れがあります。";
+  } else if(sens.length>0 && quasi.length>=1){
+    sig="yellow"; title="黄信号：情報をぼかしてから";
+    verdict="要配慮情報に、年代・性別・地域などの準識別子が付随しています。準識別子を削るか抽象化すれば、安全に投入できる可能性が高くなります。";
+  } else if(rare.length>0){
+    sig="yellow"; title="黄信号：付随情報に注意";
+    verdict="希少疾患・指定難病が含まれます。病名のみであれば許容され得ますが、他の属性を足さないよう注意してください。";
+  } else if(sens.length>0){
+    sig="green"; title="青信号：おおむね投入可能";
+    verdict="病名・症状などの要配慮情報はありますが、個人を特定する要素は検出されませんでした。念のため固有の属性を加えていないか確認してください。";
+  } else if(quasi.length>=3){
+    sig="yellow"; title="黄信号：組み合わせに注意";
+    verdict="準識別子が複数組み合わさっています。それだけで特定につながる場合があるため、必要最小限に絞ることを推奨します。";
+  } else {
+    sig="green"; title="青信号：投入可能";
+    verdict="個人を特定しうる情報は検出されませんでした。ただし本ツールが拾えない情報もあるため、最終確認はご自身で行ってください。";
+  }
+
+  // 描画
+  const sg=document.getElementById("signal");
+  sg.className="signal "+sig;
+  document.getElementById("sigTitle").textContent=title;
+  document.getElementById("sigSub").textContent =
+    `検出：直接識別子 ${direct.length} / 要配慮 ${sens.length} / 準識別子 ${quasi.length}`;
+  document.getElementById("sigVerdict").textContent=verdict;
+
+  const fl=document.getElementById("findings"); fl.innerHTML="";
+  if(all.length===0){
+    fl.innerHTML=`<li>検出された個人情報・要配慮情報はありません。</li>`;
+  }else{
+    all.sort((a,b)=>b.w-a.w).forEach(f=>{
+      const tag = f.level==="direct"?["hi","直接識別子"]:f.level==="sensitive"?["mid","要配慮"]:["lo","準識別子"];
+      const li=document.createElement("li");
+      li.innerHTML=`<span class="tag ${tag[0]}">${tag[1]}</span>
+        <span>${f.label}${f.ex?` <span style="color:#64748b">（例：${escapeHtml(String(f.ex))}）</span>`:""}</span>`;
+      fl.appendChild(li);
+    });
+  }
+
+  // アドバイス
+  const adv=document.getElementById("advice"); adv.innerHTML="";
+  const tips=[];
+  if(direct.length) tips.push("氏名・連絡先・ID・住所は<strong>必ず削除</strong>するか「Aさん」等の仮名・伏字に置き換える。");
+  if(rare.length)   tips.push("希少疾患名は推論に不可欠なら残しつつ、<strong>年代・性別・地域・所属は削る</strong>（病名のみに近づける）。");
+  if(quasi.length>=2) tips.push("年代は「成人」、地域は「国内」など<strong>抽象度を上げて</strong>容易照合性を下げる。");
+  if(sens.length && !rare.length) tips.push("一般的な病名でも、固有の属性と組み合わさると特定リスクが上がる点に注意する。");
+  if(sig==="green") tips.push("現状の文面は投入できる見込みですが、後から固有情報を追記しないよう注意してください。");
+  tips.push("迷ったら<strong>より安全側</strong>（情報を削る／投入しない）を選ぶ。組織の規程・ガイドラインも併せて確認する。");
+  tips.forEach(t=>{const li=document.createElement("li");li.innerHTML=t;adv.appendChild(li);});
+
+  document.getElementById("result").style.display="block";
+  document.getElementById("result").scrollIntoView({behavior:"smooth",block:"start"});
+}
+
+function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+document.getElementById("judge").addEventListener("click",judge);
+document.getElementById("reset").addEventListener("click",()=>{
+  document.getElementById("input").value="";
+  document.getElementById("result").style.display="none";
+});
+
+/* ---- 初回同意モーダル ---- */
+(function(){
+  const overlay=document.getElementById("consent");
+  const chk=document.getElementById("agreeChk");
+  const btn=document.getElementById("agreeBtn");
+  let agreed=false;
+  try{ agreed = localStorage.getItem("aiChecker_agreed")==="1"; }catch(e){}
+  if(agreed){ overlay.hidden=true; }
+  chk.addEventListener("change",()=>{ btn.disabled=!chk.checked; });
+  btn.addEventListener("click",()=>{
+    if(!chk.checked) return;
+    try{ localStorage.setItem("aiChecker_agreed","1"); }catch(e){}
+    overlay.hidden=true;
+  });
+})();
+</script>
+</body>
+</html>
